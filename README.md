@@ -8,3 +8,17 @@ A **minimalist app** that displays the **remaining time** until your **bedtime**
 The app features a clean, visual countdown displayed through a simple **widget**📱. Whether you're **working** 💼, **studying** 📚, or trying to maintain a **healthy sleep schedule** 😴, this at-a-glance tool helps **combat procrastination** 🚀 by showing exactly **how much time you have left** to **accomplish** your **goals** before rest! 🎯
 
 ---
+
+## Todo
+- [ ] app
+  - [x] plan how the app will work and look
+  - [x] make a basic android app that show stuff
+  - [ ] make the UI kinda look like something
+  - [ ] connect it somehow to the built in clock app
+  - [ ] settings tab
+- [ ] support
+  - [ ] IOS app
+  - [ ] implementation (means the phone app somehow send data an other device to show the cooldown, still useing phone alarm)
+    - [ ]  to linux desktop
+    - [ ]  macos
+    - [ ]  windows
