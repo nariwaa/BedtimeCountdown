@@ -22,3 +22,6 @@ The app features a clean, visual countdown displayed through a simple **widget**
     - [ ]  to linux desktop
     - [ ]  macos
     - [ ]  windows
+
+## Contribution
+Open to contribution, I don't really know what I am doing since it's my first time messing with flutter, so feel free to open issues or make PRs...
