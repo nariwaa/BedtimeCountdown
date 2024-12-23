@@ -6,6 +6,9 @@
       flutter319
       android-studio
       android-tools
+      sdkmanager
+      jdk8
+      google-chrome
     ];
 
   shellHook = ''
