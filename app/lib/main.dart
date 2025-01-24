@@ -15,14 +15,18 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Bedtime Countdown',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.yellow),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.amber,
+          brightness: Brightness.light,
+        ),
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.yellow,
+          seedColor: Colors.amber,
           brightness: Brightness.dark,
         ),
       ),
@@ -72,7 +76,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Bedtime Countdown')),
+      appBar: _selectedIndex == 1 ? null : AppBar(title: const Text('Bedtime Countdown')),
       body: IndexedStack(
         index: _selectedIndex,
         children: const [
@@ -98,6 +102,9 @@ class _MyHomePageState extends State<MyHomePage> {
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Theme.of(context).colorScheme.primary,
+        unselectedItemColor: Colors.grey,
+        elevation: 2,
+        type: BottomNavigationBarType.fixed,
         onTap: _onItemTapped,
       ),
     );
@@ -127,11 +134,16 @@ class _HomeContentState extends State<HomeContent> {
     _loadSettings();
   }
 
+  @override
+  void dispose() {
+    timer?.cancel();
+    super.dispose();
+  }
+
   void _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       hoursBeforeBed = prefs.getInt(_hoursBeforeBedKey) ?? 9;
-
       final savedTime = prefs.getString(_wakeUpTimeKey);
       if (savedTime != null) {
         wakeUpTime = DateTime.parse(savedTime);
@@ -145,15 +157,16 @@ class _HomeContentState extends State<HomeContent> {
     });
   }
 
-  @override
-  void dispose() {
-    timer?.cancel();
-    if (wakeUpTime != null) {
-      SharedPreferences.getInstance().then((prefs) {
-        prefs.setString(_wakeUpTimeKey, wakeUpTime!.toIso8601String());
-      });
-    }
-    super.dispose();
+  void _cancelCountdown() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_wakeUpTimeKey);
+
+    setState(() {
+      timer?.cancel();
+      wakeUpTime = null;
+      bedtime = null;
+      remaining = Duration.zero;
+    });
   }
 
   Future<void> _pickTime() async {
@@ -186,36 +199,160 @@ class _HomeContentState extends State<HomeContent> {
     });
   }
 
-  String _format(Duration d) => [d.inHours, d.inMinutes.remainder(60), d.inSeconds.remainder(60)]
-      .map((e) => e.toString().padLeft(2, '0'))
-      .join(':');
+  String _format(Duration d) {
+    if (wakeUpTime == null) return "--:--:--";
+    return [d.inHours, d.inMinutes.remainder(60), d.inSeconds.remainder(60)]
+        .map((e) => e.toString().padLeft(2, '0'))
+        .join(':');
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 20),
+                child: ShaderMask(
+                  shaderCallback: (bounds) => LinearGradient(
+                    colors: [
+                      Colors.amber.shade300,
+                      Colors.orange.shade300,
+                    ],
+                  ).createShader(bounds),
+                  child: Text(
+                    _format(remaining),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 72,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+              if (wakeUpTime != null) ...[
+                const SizedBox(height: 40),
+                _buildTimeCard(
+                  icon: Icons.wb_sunny,
+                  title: 'Wake-up Time',
+                  time: DateFormat('hh:mm a').format(wakeUpTime!),
+                ),
+                const SizedBox(height: 20),
+                _buildTimeCard(
+                  icon: Icons.nightlight,
+                  title: 'Bedtime',
+                  time: DateFormat('hh:mm a').format(bedtime!),
+                ),
+              ],
+            ],
+          ),
+
+          if (wakeUpTime != null)
+            _buildActionButtons()
+          else
+            _buildSetTimeButton(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimeCard({required IconData icon, required String title, required String time}) {
+    return SizedBox(
+      width: double.infinity,
+      child: Card(
+        elevation: 2,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              Icon(icon, size: 32, color: Colors.amber),
+              const SizedBox(width: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontSize: 14, color: Colors.grey)),
+                  Text(time, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (wakeUpTime == null)
-            ElevatedButton(
-              onPressed: _pickTime,
-              child: const Text('SET WAKE-UP TIME'),
-            )
-          else ...[
-            Text('Wake-up: ${DateFormat('hh:mm a').format(wakeUpTime!)}'),
-            Text('Bedtime: ${DateFormat('hh:mm a').format(bedtime!)}'),
-            const SizedBox(height: 20),
-            Text(
-              remaining.inSeconds > 0 ? _format(remaining) : 'TIME TO SLEEP!',
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _pickTime,
-              child: const Text('CHANGE WAKE-UP TIME'),
-            ),
-          ],
+          _buildButton(
+            icon: Icons.edit,
+            label: 'Change Time',
+            onPressed: _pickTime,
+            isPrimary: true,
+          ),
+          const SizedBox(width: 16),
+          _buildButton(
+            icon: Icons.cancel,
+            label: 'Cancel',
+            onPressed: _cancelCountdown,
+            isPrimary: false,
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+    required bool isPrimary,
+  }) {
+    return isPrimary
+        ? FilledButton.icon(
+      icon: Icon(icon),
+      label: Text(label),
+      onPressed: onPressed,
+      style: FilledButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    )
+        : OutlinedButton.icon(
+      icon: Icon(icon),
+      label: Text(label),
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSetTimeButton() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: SizedBox(
+        width: double.infinity,
+        child: _buildButton(
+          icon: Icons.access_time,
+          label: 'SET WAKE-UP TIME',
+          onPressed: _pickTime,
+          isPrimary: true,
+        ),
       ),
     );
   }
@@ -261,20 +398,46 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(title: const Text('')),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
-            const Text('Hours Before Bedtime:', style: TextStyle(fontSize: 20)),
-            Text('${_hours.round()}', style: const TextStyle(fontSize: 24)),
+            Text(
+              'Sleep Settings',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 32),
+            const Icon(Icons.timer, size: 48, color: Colors.amber),
+            const SizedBox(height: 24),
+            Text(
+              '${_hours.round()} hours',
+              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
             Slider(
               value: _hours,
               min: 1,
               max: 12,
               divisions: 11,
-              label: '${_hours.round()}',
+              label: '${_hours.round()} hours before bed',
               onChanged: _saveHours,
+              activeColor: Theme.of(context).colorScheme.primary,
+              inactiveColor: Colors.grey[300],
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Text(
+                'Adjust the time between bedtime and your wake-up time',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+              ),
             ),
           ],
         ),
