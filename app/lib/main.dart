@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
@@ -75,37 +76,47 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: _selectedIndex == 1 ? null : AppBar(title: const Text('Bedtime Countdown')),
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: const [
-          Placeholder(),
-          HomeContent(),
-          SettingsPage(),
-        ],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Theme.of(context).scaffoldBackgroundColor,
+        systemNavigationBarIconBrightness:
+        Theme.of(context).brightness == Brightness.dark
+            ? Brightness.light
+            : Brightness.dark,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.alarm),
-            label: 'Alarm',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Theme.of(context).colorScheme.primary,
-        unselectedItemColor: Colors.grey,
-        elevation: 2,
-        type: BottomNavigationBarType.fixed,
-        onTap: _onItemTapped,
+      child: Scaffold(
+        appBar: _selectedIndex == 1 ? null : AppBar(title: const Text('Bedtime Countdown')),
+        body: IndexedStack(
+          index: _selectedIndex,
+          children: const [
+            Placeholder(),
+            HomeContent(),
+            SettingsPage(),
+          ],
+        ),
+        bottomNavigationBar: BottomNavigationBar(
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.alarm),
+              label: 'Alarm',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home),
+              label: 'Home',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.settings),
+              label: 'Settings',
+            ),
+          ],
+          currentIndex: _selectedIndex,
+          selectedItemColor: Theme.of(context).colorScheme.primary,
+          unselectedItemColor: Colors.grey,
+          elevation: 2,
+          type: BottomNavigationBarType.fixed,
+          onTap: _onItemTapped,
+        ),
       ),
     );
   }
@@ -124,9 +135,11 @@ class _HomeContentState extends State<HomeContent> {
   Duration remaining = Duration.zero;
   Timer? timer;
   int hoursBeforeBed = 9;
+  bool use24HourFormat = true;
 
   static const String _wakeUpTimeKey = 'wakeUpTime';
   static const String _hoursBeforeBedKey = 'hoursBeforeBed';
+  static const String _timeFormatKey = 'timeFormat';
 
   @override
   void initState() {
@@ -134,16 +147,12 @@ class _HomeContentState extends State<HomeContent> {
     _loadSettings();
   }
 
-  @override
-  void dispose() {
-    timer?.cancel();
-    super.dispose();
-  }
-
   void _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       hoursBeforeBed = prefs.getInt(_hoursBeforeBedKey) ?? 9;
+      use24HourFormat = prefs.getBool(_timeFormatKey) ?? true;
+
       final savedTime = prefs.getString(_wakeUpTimeKey);
       if (savedTime != null) {
         wakeUpTime = DateTime.parse(savedTime);
@@ -155,6 +164,12 @@ class _HomeContentState extends State<HomeContent> {
         _startTimer();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    timer?.cancel();
+    super.dispose();
   }
 
   void _cancelCountdown() async {
@@ -195,19 +210,29 @@ class _HomeContentState extends State<HomeContent> {
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (bedtime == null) return;
       final now = DateTime.now();
-      setState(() => remaining = bedtime!.isAfter(now) ? bedtime!.difference(now) : Duration.zero);
+      setState(() => remaining = bedtime!.difference(now));
     });
   }
 
   String _format(Duration d) {
     if (wakeUpTime == null) return "--:--:--";
-    return [d.inHours, d.inMinutes.remainder(60), d.inSeconds.remainder(60)]
-        .map((e) => e.toString().padLeft(2, '0'))
-        .join(':');
+    final isNegative = d.isNegative;
+    final absDuration = d.abs();
+    final hours = absDuration.inHours.toString().padLeft(2, '0');
+    final minutes = (absDuration.inMinutes % 60).toString().padLeft(2, '0');
+    final seconds = (absDuration.inSeconds % 60).toString().padLeft(2, '0');
+    return '${isNegative ? '-' : ''}$hours:$minutes:$seconds';
+  }
+
+  String _formatTime(DateTime time) {
+    return DateFormat(use24HourFormat ? 'HH:mm' : 'hh:mm a').format(time);
   }
 
   @override
   Widget build(BuildContext context) {
+    final isLate = remaining.isNegative;
+    final textColor = isLate ? Colors.red.shade400 : Colors.white;
+
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
@@ -218,7 +243,17 @@ class _HomeContentState extends State<HomeContent> {
             children: [
               Padding(
                 padding: const EdgeInsets.only(top: 20),
-                child: ShaderMask(
+                child: isLate
+                    ? Text(
+                  _format(remaining),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 72,
+                    fontWeight: FontWeight.w900,
+                    color: textColor,
+                  ),
+                )
+                    : ShaderMask(
                   shaderCallback: (bounds) => LinearGradient(
                     colors: [
                       Colors.amber.shade300,
@@ -228,10 +263,10 @@ class _HomeContentState extends State<HomeContent> {
                   child: Text(
                     _format(remaining),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 72,
                       fontWeight: FontWeight.w900,
-                      color: Colors.white,
+                      color: textColor,
                     ),
                   ),
                 ),
@@ -241,13 +276,13 @@ class _HomeContentState extends State<HomeContent> {
                 _buildTimeCard(
                   icon: Icons.wb_sunny,
                   title: 'Wake-up Time',
-                  time: DateFormat('hh:mm a').format(wakeUpTime!),
+                  time: _formatTime(wakeUpTime!),
                 ),
                 const SizedBox(height: 20),
                 _buildTimeCard(
                   icon: Icons.nightlight,
                   title: 'Bedtime',
-                  time: DateFormat('hh:mm a').format(bedtime!),
+                  time: _formatTime(bedtime!),
                 ),
               ],
             ],
@@ -367,16 +402,20 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   double _hours = 9;
+  bool _use24HourFormat = true;
 
   @override
   void initState() {
     super.initState();
-    _loadHours();
+    _loadSettings();
   }
 
-  void _loadHours() async {
+  void _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() => _hours = (prefs.getInt('hoursBeforeBed') ?? 9).toDouble());
+    setState(() {
+      _hours = (prefs.getInt('hoursBeforeBed') ?? 9).toDouble();
+      _use24HourFormat = prefs.getBool('timeFormat') ?? true;
+    });
   }
 
   void _saveHours(double value) async {
@@ -393,6 +432,20 @@ class _SettingsPageState extends State<SettingsPage> {
     }
 
     setState(() => _hours = value);
+  }
+
+  void _saveTimeFormat(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('timeFormat', value);
+
+    final homeContentState = context.findAncestorStateOfType<_HomeContentState>();
+    if (homeContentState != null) {
+      homeContentState.setState(() {
+        homeContentState.use24HourFormat = value;
+      });
+    }
+
+    setState(() => _use24HourFormat = value);
   }
 
   @override
@@ -427,6 +480,13 @@ class _SettingsPageState extends State<SettingsPage> {
               onChanged: _saveHours,
               activeColor: Theme.of(context).colorScheme.primary,
               inactiveColor: Colors.grey[300],
+            ),
+            const SizedBox(height: 24),
+            SwitchListTile(
+              title: const Text('24-hour Format'),
+              value: _use24HourFormat,
+              onChanged: _saveTimeFormat,
+              activeColor: Theme.of(context).colorScheme.primary,
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
