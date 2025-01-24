@@ -1,0 +1,11 @@
+// This is a generated file; do not edit or check into version control.
+FLUTTER_ROOT=/nix/store/4lxp83skw1a9n4ph4ac71l17ygm4knhn-flutter-wrapped-3.19.4-sdk-links
+FLUTTER_APPLICATION_PATH=/home/ayaya/dev/BedtimeCountdown/app
+COCOAPODS_PARALLEL_CODE_SIGN=true
+FLUTTER_BUILD_DIR=build
+FLUTTER_BUILD_NAME=1.0.0
+FLUTTER_BUILD_NUMBER=1
+DART_OBFUSCATION=false
+TRACK_WIDGET_CREATION=true
+TREE_SHAKE_ICONS=false
+PACKAGE_CONFIG=.dart_tool/package_config.json

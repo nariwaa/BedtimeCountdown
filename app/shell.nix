@@ -7,7 +7,9 @@
       android-studio
       android-tools
       sdkmanager
-      jdk8
+      jdk17
+      # openjdk17
+      # jdk8
       google-chrome
     ];
 
