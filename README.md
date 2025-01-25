@@ -13,7 +13,7 @@ The app features a clean, visual countdown displayed through a simple **widget**
 - [ ] app
   - [x] plan how the app will work and look
   - [x] make a basic android app that show stuff
-  - [ ] make the UI kinda look like something
+  - [x] make the UI kinda look like something
   - [ ] connect it somehow to the built in clock app
   - [ ] settings tab
 - [ ] support
